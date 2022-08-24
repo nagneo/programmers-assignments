@@ -1,58 +1,61 @@
-const IMAGE_BASE_URL = "https://fe-dev-matching-2021-03-serverlessdeploymentbuck-t3kpj3way537.s3.ap-northeast-2.amazonaws.com/public"
-
-export default function ImageViewer ({
+export default function Breadcrumb ({
     $target,
-    initialState = {
-        node: {}
-    }
+    initialState = {},
+    onClick
   }) {
-    this.$element = document.createElement('div')
-    this.$element.className = "Modal ImageViewer"
-    
+    this.$element = document.createElement('nav')
+    this.$element.className = "Breadcrumb"
+    this.onClick = onClick
+  
+    $target.appendChild(this.$element)
     this.state = initialState
     this.setState = (nextState) => {
-        console.log("setstate")
         this.state = nextState;
         this.render();
     }
-
+  
     this.render = () => {
-        $target.appendChild(this.$element)
-        const { node } = this.state
-        if (!node) {
+        const { depths } = this.state
+        if (!depths || depths.length === 0) {
             return;
         }
-
         this.$element.innerHTML = `
-            <div class="content">
-                <img src="${IMAGE_BASE_URL}${node.filePath}">
-            </div>
-            `
-    }
-
-    this.close = () => {
-        try {
-            $target.removeChild(this.$element)
-        }
-        catch (e) {
-            console.log(e.message)
-        }
+            ${depths.map(node => `
+                <div class="Nav-Item" data-node-id="${node.id}">${node.name}</div>
+            `).join('')}
+        `
     }
 
     this.$element.addEventListener("click", (e) => {
-        if (e.target.tagName === "IMG") {
+        if ( e.target.className != 'Nav-Item') {
             return;
         }
+        
+        //DEBUG
+        //console.log(`[Breadcrumb] control clicked`)
+        var { nodeId } = e.target.dataset
+        if (nodeId) {
+            var { depths = [] } = this.state
+            if (!depths) {
+                return;
+            }
 
-        this.close()
+            if (nodeId === depths[depths.length - 1].id) {
+                return;
+            }
+
+            const selectedNode = depths.find(n => n.id === nodeId);
+            if (!selectedNode) {
+                return;
+            }
+
+            //DEBUG
+            //console.log(`[Breadcrumb] nodeId: ${nodeId}, nodes: ${depths}`)
+            this.onClick(selectedNode)
+        }
+        else {
+            //root
+            this.onClick(null)
+        }
     })
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key != "Escape") {
-            return;
-        }
-
-        this.close()
-    });
-
-}
+  }

@@ -1,17 +1,12 @@
 import Nodes from "./components/Nodes.js"
 import Breadcrumb from "./components/Breadcrumb.js"
 import ImageViewer from './components/ImageViewer.js'
+import Loading from './components/Loading.js'
 import { request } from './core/api.js'
 
 export default function App({
     $target,
-    intialState = {
-        nodes: [],
-        depths: []
-    }
-}) {
-    //initialize
-    this.state = {
+    initialState = {
         depths : [
             { 
                 id: '',
@@ -21,10 +16,16 @@ export default function App({
                 parent: null 
             }
         ],
-        nodes: intialState.nodes
+        nodes: []
     }
+}) {
+    //initialize
+    this.state = initialState
 
     this.setState = (nextState) => {
+        //DEBUG
+        //console.log("[APP] set state")
+
         this.state = nextState
         const { nodes, depths } = this.state
 
@@ -35,43 +36,78 @@ export default function App({
         nodeCompoments.setState({
             nodes
         })
+
+        const isShow = false
+        loading.setState({
+            isShow
+        })
     }
 
-    const fetchRequest = async (url, node = null) => {
-        const items = await request(url);
-        
-        var currentDepths = [...this.state.depths,node]
-        if(node) {
-            currentDepths.push(node)
-        }
+    const update = async (url, node = null) => {
+        const isShow = true
+        loading.setState({
+            isShow
+        })
 
+        const items = await request(url);
+        var currentDepths = [...this.state.depths]
+        if(node) {
+            const { depths = [] } = this.state
+
+            var existIndex = depths.findIndex(n => n.id == node.id)
+            if(existIndex > -1) {
+                currentDepths = depths.slice(0, existIndex + 1)
+            }
+            else {
+                currentDepths.push(node)
+            }
+        }
+        
         this.setState({ 
             nodes: items,
             depths: currentDepths
         })
-        
-        return items
     }
 
     this.onClick = (newNode) => {
-        console.log("node clicked")
-        if (!newNode) {
-            return
-        }
 
-        console.log(newNode)
-        if (newNode.type === "DIRECTORY") {
-            fetchRequest(`/${newNode.id}`, newNode)
+        //DEBUG
+        //console.log("[APP] node clicked") 
+        if (newNode) {
+
+            //DEBUG
+            //console.log(`[APP] ${newNode}`)
+
+            if (newNode.type === "DIRECTORY") {
+                update(`/${newNode.id}`, newNode)
+            }
+            else if (newNode.type === "FILE") {
+                imageViewer.setState({
+                    node: newNode
+                })
+            }
         }
-        else if (newNode.type === "FILE") {
-            imageViewer.setState({
-                node: newNode
-            })
+        else {
+            //root
+            this.state = initialState
+            update('');
         }
     }
 
     this.onBackClick = () => {
-        console.log("node backed")
+        const { depths = [] } = this.state
+        if(!depths || depths.length > 1) {
+            depths.pop(); // delete latest
+        }
+        
+        const lastNode = depths[depths.length - 1]
+        if (!lastNode) {
+            return;
+        }
+        
+        //DEBUG
+        //console.log(`[APP] node backed: ${JSON.stringify(lastNode)}`)
+        update(`${lastNode.id ? `/${lastNode.id}` : ''}`, null)
     }
 
     const breadcrumb = new Breadcrumb({
@@ -83,13 +119,19 @@ export default function App({
     const nodeCompoments = new Nodes({
         $target,
         initialState: {},
-        onClick : this.onClick
+        onClick : this.onClick,
+        onBackClick : this.onBackClick
     });
     
     const imageViewer = new ImageViewer({
         $target
     });
 
+    const loading = new Loading({
+        $target
+    });
+
+
     //Init
-    fetchRequest('');
+    update('');
 }
